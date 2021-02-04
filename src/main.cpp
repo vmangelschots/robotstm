@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <Servo.h>
-
-
-
+#include <Wire.h>
+#include <STM32FreeRTOS.h>
+#include <STM32FreeRTOSConfig.h>
 
   Servo channels[8];
   PinName channelpins[8]{
@@ -15,10 +15,54 @@
     PA_7,
     PA_11
   };
-  int pos = 0;
+int pos[7];
+
+void UpdateServoPos(void *pvParameters){
+
+  for(;;){
+    for(int i = 0;i<7;i++){
+      channels[i].write(map(pos[i],0,255,0,180));
+    }
+    vTaskDelay(10/portTICK_PERIOD_MS);
+  
+  }
+}
+
+void TaskStatus(void *pvParameters)  // This is a task.
+{
+  (void) pvParameters;
+  Serial.println("STatus task started");
+  // initialize digital pin PA_8 as an output.
+  pinMode(PA_8,OUTPUT);
+  for (;;) // A Task shall never return or exit.
+  {
+    digitalWrite(PA_8, HIGH);   // turn the LED on (HIGH is the voltage level)
+    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+    digitalWrite(PA_8, LOW);    // turn the LED off by making the voltage LOW
+    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+  }
+}
+
+void receiveEvent(int howMany)
+{
+  char command;
+  Serial.print("received");
+  while(Wire.available()){
+    command = Wire.read();
+    if(command=='S'){
+      for(int i = 0; i< 7; i++){
+        pos[i] = Wire.read();
+      }
+    }
+    else{
+      command = Wire.read();
+    }
+  }
+}
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
+  Serial.println("Starting robot stm");
   uint8_t index;
   
   for(int i = 0; i<8;i++){
@@ -29,46 +73,48 @@ void setup() {
     Serial.println(index);
 
   }
-
-  pinMode(PA_8,OUTPUT);
+  Serial.println("setting up task");
+  xTaskCreate(
+    TaskStatus,
+    "Status",   // A name just for humans
+    128,  // Stack size
+    NULL,
+    tskIDLE_PRIORITY,  // priority
+    NULL );
+  Serial.println("setting output mode");
   pinMode(PA_4,OUTPUT);
   pinMode(PA_5,OUTPUT);
   pinMode(PA_6,OUTPUT);
   pinMode(PC_6,OUTPUT);
   pinMode(PC_7,OUTPUT);
   pinMode(PC_8,OUTPUT);
+  /* set the default servo positions*/
+  for(int i = 0;i<7;i++){
+    pos[i] = 128;
+  }
+  xTaskCreate(
+  UpdateServoPos,
+  "updateServoPos",   // A name just for humans
+  128,  // Stack size
+  NULL,
+  5,  // priority
+  NULL );
+  //   xTaskCreate(
+  // receiveI2C,
+  // "receiveI2C",   // A name just for humans
+  // 1024,  // Stack size
+  // NULL,
+  // 3,  // priority
+  // NULL );
+  Serial.println("starting...");
+
+  Wire.begin(3);
+  Wire.setSCL(PB_6);
+  Wire.setSDA(PB_7);
+  Wire.onReceive(receiveEvent);
+
+  vTaskStartScheduler();
 }
 
 void loop() {
-    digitalWrite(PA_8,HIGH);
-    //  digitalWrite(PA_4,HIGH);
-    //  digitalWrite(PA_5,LOW);
-    //  digitalWrite(PC_6,HIGH);
-    //  digitalWrite(PC_8,LOW);
-     //analogWrite(PA_6,100);
-     //analogWrite(PC_7,100);
-  delay(1000);
- 
-  digitalWrite(PA_8,LOW);
-    //  digitalWrite(PA_4,LOW);
-    //  digitalWrite(PA_5,HIGH);
-    //  digitalWrite(PC_6,LOW);
-    //  digitalWrite(PC_8,HIGH);
-     //analogWrite(PA_6,100);
-     //analogWrite(PC_7,100);
-  delay(1000);
-  for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
-    // in steps of 1 degree
-  for(int i = 0; i<8;i++){
-    channels[i].write(pos);
   }
-    delay(15);                       // waits 15ms for the servo to reach the position
-  }
-  for (pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
-  for(int i = 0; i<8;i++){
-    channels[i].write(pos);
-  }              // tell servo to go to position in variable 'pos'
-    delay(15);           
-  //put your main code here, to run repeatedly:
-  }
-}

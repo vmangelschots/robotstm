@@ -1,10 +1,11 @@
 #include <Arduino.h>
 #include <Servo.h>
 #include <Wire.h>
+#include "motor.h"
 
+  Servo channels[10]; // contains the 8 servo channel values and 2 motor values 
 
-  Servo channels[8];
-
+  /*This array contains the pins connected to the servo channels*/
   PinName channelpins[8]{
     PA_2,
     PA_3,
@@ -15,75 +16,63 @@
     PA_7,
     PA_11
   };
-int pos[7];
+
+int pos[9];
+
+Motor M1 = Motor(PA_4,PA_5,PA_6);
+Motor M2 = Motor(PC_6,PC_8,PC_7);
 
 
-
-void receiveEvent(int howMany)
+void receiveEventdf(int howMany)
 {
   char command;
-  int temppos;
   while(Wire.available()){
-    Wire.read();
-    // command = Wire.read();
-    // if(command=='S'){
-    //   for(int i = 0; i< 7; i++){
-    //     temppos = Wire.read();
-    //   }
-    // }
-    // else{
-    //   command = Wire.read();
-    // }
+    command = Wire.read();
+    if(command=='S'){
+      for(int i = 0; i< 9; i++){
+        pos[i] = Wire.read();
+      }
+    }
+    else{
+      command = Wire.read();
+    }
   }
 }
 
 
 
 void setup() {
+  /*setup serial*/
   Serial.begin(115200);
   Serial.println("Starting robot stm");
+  /*set the resolution for the PWM to 8*/
+  analogWriteResolution(8);
   uint8_t index;
-  //   Serial.println("setting output mode");
-  // for(int i = 0;i<7;i++){
-  //   pinMode(channelpins[i],OUTPUT);
-  // }
-  // for(int i = 0; i<8;i++){
-  //   Serial.print("setting up servo: ");
-  //   Serial.print(i);
-  //   index = channels[i].attach(channelpins[i]);
-  //   Serial.print(" index: ");
-  //   Serial.println(index);
 
-  // }
-
- channels[0].attach(channelpins[0]);
-  // Wire.setSCL(PB_6);
-  // Wire.setSDA(PB_7);
-  // Wire.begin(0x03);
-  // Wire.onReceive(receiveEvent);
+  for(int i = 0; i<8;i++){
+    Serial.print("setting up servo: ");
+    Serial.print(i);
+    index = channels[i].attach(channelpins[i]);
+   }
+  /*setup one wire (I2C)*/
+  Wire.setSCL(PB_6);
+  Wire.setSDA(PB_7);
+  Wire.begin(0x03);
+  Wire.onReceive(receiveEventdf);
   
   /* set the default servo positions*/
-  for(int i = 0;i<7;i++){
+  for(int i = 0;i<9;i++){
     pos[i] = 128;
   }
 }
 
 void loop() {
-  int pos;
-  for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
-    // in steps of 1 degree
-    channels[0].write(pos);              // tell servo to go to position in variable 'pos'
-    delay(15);                       // waits 15ms for the servo to reach the position
-  }
-  for (pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
-    channels[0].write(pos);              // tell servo to go to position in variable 'pos'
-    delay(15);                       // waits 15ms for the servo to reach the position
-  }
   for(int i = 0;i<7;i++){
-    // Serial.print("setting servo ");
-    // Serial.print(i);
-    // Serial.print(" to ");
-    // Serial.println(map(pos[i],0,255,0,180));
-    //channels[i].write(map(pos[i],0,255,0,180));
+
+    channels[i].write(map(pos[i],0,255,0,180));
+    
   }
+  M1.setPos(pos[7]);
+  M2.setPos(pos[8]);
+  delay(100);
 }

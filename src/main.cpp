@@ -1,9 +1,9 @@
 #include <Arduino.h>
-#include <Servo.h>
+#include "ServoEasing.h"
 #include <Wire.h>
 #include "motor.h"
 
-  Servo channels[10]; // contains the 8 servo channel values and 2 motor values 
+  ServoEasing channels[10]; // contains the 8 servo channel values and 2 motor values 
 
   /*This array contains the pins connected to the servo channels*/
   PinName channelpins[8]{
@@ -48,11 +48,15 @@ void setup() {
   /*set the resolution for the PWM to 8*/
   analogWriteResolution(8);
   uint8_t index;
-
+  pinMode(PA8,OUTPUT);
   for(int i = 0; i<8;i++){
     Serial.print("setting up servo: ");
     Serial.print(i);
     index = channels[i].attach(channelpins[i]);
+    channels[i].write(0);
+    //center the servo
+    channels[i].setSpeed(45);
+    channels[i].setEasingType(EASE_LINEAR             );
    }
   /*setup one wire (I2C)*/
   Wire.setSCL(PB_6);
@@ -67,9 +71,10 @@ void setup() {
 }
 
 void loop() {
+  digitalWrite(PA8,HIGH);
   for(int i = 0;i<7;i++){
 
-    channels[i].write(map(pos[i],0,255,0,180));
+    channels[i].easeTo(map(pos[i],0,255,0,180)); 
     
   }
   M1.setPos(pos[7]);
